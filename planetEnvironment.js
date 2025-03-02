@@ -24,29 +24,30 @@ export class PlanetEnvironment {
             theoreticalTime: 0
         };
 
-        // Initialize movement controls
+        // Movement controls for the character.
         this.keyStates = {
             'w': false,
             's': false,
             'a': false,
             'd': false,
-            ' ': false,  // space for jump
-            'e': false   // e for picking up/holding ball
+            ' ': false,  // jump
+            'e': false   // pickup/hold ball
         };
-        
-        // Trajectory visualization properties
-        this.trajectoryLine = null;
+
+        // Trajectory visualization properties.
+        this.trajectoryLine = null;               // Forward (green) trajectory while aiming.
+        this.secondaryTrajectoryLine = null;      // Secondary (red) trajectory when ball is thrown.
         this.trajectoryPoints = [];
         this.isAiming = false;
         this.throwForce = 15;
-        this.throwAngle = Math.PI / 4; // 45 degrees
-        this.gravity = 9.82; // m/s²
+        this.throwAngle = Math.PI / 4; // 45°
+        this.gravity = 9.82;          // m/s²
         this.landingMarker = null;
         this.throwStartPosition = new THREE.Vector3();
         this.throwStartTime = 0;
         this.isThrown = false;
-        this.isHoldingBall = true; // Flag to track if character is holding the ball
-        this.ballThrown = false;   // Flag for projectile motion simulation
+        this.isHoldingBall = true;    // Whether the character is holding the ball.
+        this.ballThrown = false;      // Whether the ball is in flight.
         this.flightData = {
             range: 0,
             maxHeight: 0,
@@ -54,16 +55,21 @@ export class PlanetEnvironment {
             initialVelocity: 0,
             angle: 0
         };
-        
-        // UI controls references
+
+        // Stored throw parameters (frozen at throw time).
+        this.storedThrowForce = 0;
+        this.storedThrowAngle = 0;
+        this.initialThrowDirection = new THREE.Vector3();
+
+        // UI controls.
         this.controls = {
             physicsPanel: null
         };
 
-        // Create UI for adjusting throw parameters
+        // Create UI controls.
         this.createControls();
-        
-        // Bind event handlers
+
+        // Bind event handlers.
         this.onKeyDown = this.onKeyDown.bind(this);
         this.onKeyUp = this.onKeyUp.bind(this);
         this.update = this.update.bind(this);
@@ -73,48 +79,117 @@ export class PlanetEnvironment {
         this.onMouseMove = this.onMouseMove.bind(this);
         this.onMouseUp = this.onMouseUp.bind(this);
 
-        // Add event listeners
+        // Add event listeners.
         window.addEventListener('keydown', this.onKeyDown);
         window.addEventListener('keyup', this.onKeyUp);
         window.addEventListener('mousedown', this.onMouseDown);
         window.addEventListener('mousemove', this.onMouseMove);
         window.addEventListener('mouseup', this.onMouseUp);
 
-        // Start update loop
+        // Start update loop.
         this.lastTime = performance.now();
         this.update();
-        
-        // Initialize projectile physics controls
+
+        // Projectile motion key controls.
         this.projectileKeyStates = {
-            'w': false,         // Increase force
-            's': false,         // Decrease force
-            'arrowup': false,   // Increase angle
-            'arrowdown': false, // Decrease angle
-            ' ': false,         // Throw ball (spacebar)
-            'i': false,         // Move forward
-            'k': false,         // Move backward
-            'j': false,         // Move left
-            'l': false,         // Move right
+            'w': false,
+            's': false,
+            'arrowup': false,
+            'arrowdown': false,
+            ' ': false,
+            'i': false,
+            'k': false,
+            'j': false,
+            'l': false,
             'e': false
         };
-        
-        // Add event listeners for projectile motion controls
+
         window.addEventListener('keydown', this.onProjectileKeyDown.bind(this));
         window.addEventListener('keyup', this.onProjectileKeyUp.bind(this));
     }
 
-    // Initializes projectile physics and creates a single ball for all functionalities
+    // ---------------------- New Helper Functions ----------------------
+
+    // Adjusts the camera so that the full predicted (green) trajectory is visible.
+    adjustCameraForTrajectory() {
+        const points = [];
+        const timeStep = 0.1;
+        const maxTime = 5.0;
+        const vx = this.storedThrowForce * Math.cos(this.storedThrowAngle);
+        const vy = this.storedThrowForce * Math.sin(this.storedThrowAngle);
+        // Compute predicted trajectory from the stored throw origin.
+        for (let t = 0; t <= maxTime; t += timeStep) {
+            const x = this.throwStartPosition.x + this.initialThrowDirection.x * vx * t;
+            const z = this.throwStartPosition.z + this.initialThrowDirection.z * vx * t;
+            const y = this.throwStartPosition.y + vy * t - 0.5 * this.gravity * t * t;
+            if (y < 0) break;
+            points.push(new THREE.Vector3(x, y, z));
+        }
+        if (points.length === 0) return;
+        const bbox = new THREE.Box3().setFromPoints(points);
+        const center = bbox.getCenter(new THREE.Vector3());
+        const size = bbox.getSize(new THREE.Vector3());
+        // Offset perpendicular to the throw direction.
+        const perp = new THREE.Vector3(-this.initialThrowDirection.z, 0, this.initialThrowDirection.x).normalize();
+        const offsetDistance = size.x * 2;
+        const targetPos = center.clone().add(perp.multiplyScalar(offsetDistance));
+        targetPos.y += size.y * 0.8;
+        this.camera.position.copy(targetPos);
+        this.camera.lookAt(center);
+    }
+
+    // Updates the secondary (red) trajectory line.
+    updateSecondaryTrajectory() {
+        // Use the current character position as the starting point.
+        const startPos = this.character.position.clone().add(new THREE.Vector3(0, 1.5, 0));
+        // Use stored throw parameters.
+        const vx = this.storedThrowForce * Math.cos(this.storedThrowAngle);
+        const vy = this.storedThrowForce * Math.sin(this.storedThrowAngle);
+        const points = [];
+        const timeStep = 0.1;
+        const maxTime = 5.0;
+        for (let t = 0; t <= maxTime; t += timeStep) {
+            const x = startPos.x + this.initialThrowDirection.x * vx * t;
+            const z = startPos.z + this.initialThrowDirection.z * vx * t;
+            const y = startPos.y + vy * t - 0.5 * this.gravity * t * t;
+            if (y < 0) break;
+            points.push(new THREE.Vector3(x, y, z));
+        }
+        if (points.length === 0) return;
+        // Create or update the secondary trajectory line.
+        if (!this.secondaryTrajectoryLine) {
+            const geometry = new THREE.BufferGeometry().setFromPoints(points);
+            const material = new THREE.LineDashedMaterial({
+                color: 0xff0000,
+                dashSize: 0.5,
+                gapSize: 0.2,
+                linewidth: 10,
+                opacity: 0.9,
+                transparent: true
+            });
+            this.secondaryTrajectoryLine = new THREE.Line(geometry, material);
+            this.secondaryTrajectoryLine.computeLineDistances();
+            this.scene.add(this.secondaryTrajectoryLine);
+        } else {
+            const geometry = new THREE.BufferGeometry().setFromPoints(points);
+            this.secondaryTrajectoryLine.geometry.dispose();
+            this.secondaryTrajectoryLine.geometry = geometry;
+            this.secondaryTrajectoryLine.computeLineDistances();
+            this.secondaryTrajectoryLine.visible = true;
+        }
+    }
+
+    // ---------------------- End New Helper Functions ----------------------
+
+    // Initializes projectile physics and creates a unified ball.
     initProjectilePhysics() {
-        // Create physics world if it doesn't exist
         if (!this.physicsWorld) {
             this.physicsWorld = new CANNON.World();
-            this.physicsWorld.gravity.set(0, -9.82, 0); // Earth gravity
+            this.physicsWorld.gravity.set(0, -9.82, 0);
             this.physicsWorld.broadphase = new CANNON.NaiveBroadphase();
             this.physicsWorld.solver.iterations = 10;
             this.physicsWorld.defaultContactMaterial.friction = 0.5;
         }
-        
-        // Create ground plane for the ball to land on if not already added
         if (!this.groundBody) {
             const groundShape = new CANNON.Plane();
             const groundBody = new CANNON.Body({ mass: 0, material: this.groundMaterial });
@@ -123,21 +198,17 @@ export class PlanetEnvironment {
             this.physicsWorld.addBody(groundBody);
             this.groundBody = groundBody;
         }
-        
-        // Create ball for projectile with combined functionalities
         const ballRadius = 0.5;
         const ballGeometry = new THREE.SphereGeometry(ballRadius, 32, 32);
         const ballMaterial = new THREE.MeshStandardMaterial({ color: 0xff4444, metalness: 0.5, roughness: 0.4 });
         this.ball = new THREE.Mesh(ballGeometry, ballMaterial);
         this.ball.castShadow = true;
         this.ball.receiveShadow = true;
-        // Initially position ball near the character (or default position)
         const charPos = this.character ? this.character.position : new THREE.Vector3(0, 0, 0);
         this.ball.position.set(charPos.x + 2, ballRadius, charPos.z);
         this.scene.add(this.ball);
         console.log(`Ball Mesh Created at: X=${this.ball.position.x}, Y=${this.ball.position.y}, Z=${this.ball.position.z}`);
 
-        // Create ball physics body
         const ballShape = new CANNON.Sphere(ballRadius);
         this.ballBody = new CANNON.Body({
             mass: 2,
@@ -147,7 +218,7 @@ export class PlanetEnvironment {
             angularDamping: 0.3
         });
         this.ballBody.addShape(ballShape);
-        // When held, set the body type to kinematic so gravity doesn't pull it down.
+        // Make the ball kinematic when held.
         this.ballBody.type = CANNON.Body.KINEMATIC;
         this.ballBody.addEventListener('collide', (event) => {
             const contact = event.contact;
@@ -164,8 +235,7 @@ export class PlanetEnvironment {
         });
         this.physicsWorld.addBody(this.ballBody);
         console.log("Ball body created at:", this.ballBody.position);
-        
-        // Create trajectory line if not already created
+
         if (!this.trajectoryLine) {
             const points = [
                 new THREE.Vector3(0, 0, 0),
@@ -196,8 +266,7 @@ export class PlanetEnvironment {
             this.scene.add(this.trajectoryLine);
             console.log("Trajectory line created with points:", points.length);
         }
-        
-        // Create landing marker if not already created
+
         if (!this.landingMarker) {
             const markerGeometry = new THREE.RingGeometry(0.5, 0.6, 32);
             const markerMaterial = new THREE.MeshBasicMaterial({ color: 0xffff00, side: THREE.DoubleSide });
@@ -209,27 +278,42 @@ export class PlanetEnvironment {
         }
     }
 
-    // Update loop: handles physics, camera, character movement, and trajectory updates
+    // Update loop: handles physics, camera, character movement, and trajectory updates.
     update() {
         const time = performance.now();
         const delta = (time - this.lastTime) / 1000;
         this.lastTime = time;
 
         if (this.isInUpdateLoop) {
-            // Update physics for projectile motion
-            if (this.physicsWorld && this.ballBody && this.ball) {
+            // If the ball is thrown, update its position using the projectile motion equations.
+            if (this.ballThrown && !this.isHoldingBall) {
+                const currentTime = performance.now();
+                const t = (currentTime - this.throwStartTime) / 1000;
+                const vx = this.storedThrowForce * Math.cos(this.storedThrowAngle);
+                const vy = this.storedThrowForce * Math.sin(this.storedThrowAngle);
+                const newX = this.throwStartPosition.x + this.initialThrowDirection.x * vx * t;
+                const newY = this.throwStartPosition.y + vy * t - 0.5 * this.gravity * t * t;
+                const newZ = this.throwStartPosition.z + this.initialThrowDirection.z * vx * t;
+                this.ball.position.set(newX, newY, newZ);
+                this.ballBody.position.copy(this.ball.position);
+
+                // When the ball reaches or goes below the ground, mark it as landed.
+                if (newY <= 0) {
+                    this.isThrown = false;
+                    this.ballThrown = false;
+                    this.updateLandingMarker(new THREE.Vector3(newX, 0.01, newZ));
+                    this.displayFlightData();
+                }
+            } else if (this.physicsWorld && this.ballBody && this.ball) {
                 this.updateProjectilePhysics(delta);
             }
 
-            // Update camera controls
             if (this.controls && this.controls.update) {
                 this.controls.update();
             }
-
-            // Handle character movement
             this.handleCharacterMovement(delta);
 
-            // If ball is held, update its position to follow the character's hand
+            // When the ball is held, update its position from the character's left hand.
             if (this.isHoldingBall && !this.ballThrown) {
                 let handWorldPos = new THREE.Vector3();
                 this.character.leftArm.getWorldPosition(handWorldPos);
@@ -237,42 +321,38 @@ export class PlanetEnvironment {
                 handWorldPos.add(offset);
                 this.ball.position.copy(handWorldPos);
                 this.ballBody.position.copy(handWorldPos);
-                // Also update trajectory preview and physics calculations
                 this.updateTrajectoryPreview();
                 this.updatePhysicsCalculations();
+                if (this.secondaryTrajectoryLine) {
+                    this.secondaryTrajectoryLine.visible = false;
+                }
+            }
+
+            // Update the secondary (red) trajectory if the ball is in flight.
+            if (this.ballThrown && !this.isHoldingBall) {
+                this.updateSecondaryTrajectory();
             }
         }
         
         requestAnimationFrame(this.update.bind(this));
     }
 
-    // Steps the physics world and updates the ball's visual representation
+    // Advances the physics simulation and syncs the ball mesh.
     updateProjectilePhysics(deltaTime) {
-        this.physicsWorld.step(1/60, deltaTime, 3);
+        this.physicsWorld.step(1 / 60, deltaTime, 3);
         this.ball.position.copy(this.ballBody.position);
         this.ball.quaternion.copy(this.ballBody.quaternion);
     }
 
-    // Handles character movement using projectile motion controls
+    // Handles character movement.
     handleCharacterMovement(deltaTime) {
         if (!this.character || !this.characterBody) return;
-        
         const moveSpeed = 5 * deltaTime;
         const moveDirection = new THREE.Vector3();
-        
-        if (this.projectileKeyStates['i']) {
-            moveDirection.z -= 1;
-        }
-        if (this.projectileKeyStates['k']) {
-            moveDirection.z += 1;
-        }
-        if (this.projectileKeyStates['j']) {
-            moveDirection.x -= 1;
-        }
-        if (this.projectileKeyStates['l']) {
-            moveDirection.x += 1;
-        }
-        
+        if (this.projectileKeyStates['i']) { moveDirection.z -= 1; }
+        if (this.projectileKeyStates['k']) { moveDirection.z += 1; }
+        if (this.projectileKeyStates['j']) { moveDirection.x -= 1; }
+        if (this.projectileKeyStates['l']) { moveDirection.x += 1; }
         if (moveDirection.length() > 0) {
             moveDirection.normalize();
             moveDirection.applyQuaternion(this.camera.quaternion);
@@ -282,7 +362,6 @@ export class PlanetEnvironment {
             this.character.position.z += moveDirection.z * moveSpeed;
             this.characterBody.position.copy(this.character.position);
             if (this.isHoldingBall) {
-                // When held, update ball position to character's position plus an offset
                 const offset = new THREE.Vector3(0, 1, 0);
                 const holdingPos = this.character.position.clone().add(offset);
                 this.ballBody.position.copy(holdingPos);
@@ -292,10 +371,9 @@ export class PlanetEnvironment {
         }
     }
 
-    // Updates physics for character and ball; handles movement, jumping, and trajectory visualization
+    // (Optional) Additional physics update method.
     updatePhysics(deltaTime) {
-        this.physicsWorld.step(1/60, deltaTime, 3);
-        
+        this.physicsWorld.step(1 / 60, deltaTime, 3);
         if (this.characterBody && this.character) {
             const cameraDirection = new THREE.Vector3();
             this.camera.getWorldDirection(cameraDirection);
@@ -304,12 +382,10 @@ export class PlanetEnvironment {
             const cameraRight = new THREE.Vector3();
             cameraRight.crossVectors(cameraDirection, new THREE.Vector3(0, 1, 0));
             const moveDirection = new THREE.Vector3();
-
-            if (this.keyStates['w']) moveDirection.add(cameraDirection);
-            if (this.keyStates['s']) moveDirection.sub(cameraDirection);
-            if (this.keyStates['a']) moveDirection.sub(cameraRight);
-            if (this.keyStates['d']) moveDirection.add(cameraRight);
-
+            if (this.keyStates['w']) { moveDirection.add(cameraDirection); }
+            if (this.keyStates['s']) { moveDirection.sub(cameraDirection); }
+            if (this.keyStates['a']) { moveDirection.sub(cameraRight); }
+            if (this.keyStates['d']) { moveDirection.add(cameraRight); }
             if (moveDirection.lengthSq() > 0) {
                 moveDirection.normalize();
                 const moveSpeed = 30;
@@ -322,20 +398,16 @@ export class PlanetEnvironment {
                 this.characterBody.velocity.x *= 0.8;
                 this.characterBody.velocity.z *= 0.8;
             }
-
             if (this.keyStates[' '] && this.characterBody.position.y <= 0.5) {
                 const jumpForce = 10;
                 this.characterBody.velocity.y = jumpForce;
             }
-            
             this.character.position.copy(this.characterBody.position);
         }
-        
         if (this.ball && this.ballBody) {
             this.ball.position.copy(this.ballBody.position);
             this.ball.quaternion.copy(this.ballBody.quaternion);
         }
-        
         if (this.isThrown) {
             const timeElapsed = (performance.now() - this.throwStartTime) / 1000;
             const range = this.throwForce * Math.cos(this.throwAngle) * timeElapsed;
@@ -350,10 +422,9 @@ export class PlanetEnvironment {
         }
     }
 
-    // Updates the trajectory visualization based on current aiming parameters
+    // Updates the forward (green) trajectory preview while aiming.
     updateTrajectory() {
         if (!this.isAiming || !this.ball) return;
-
         const position = new THREE.Vector3();
         position.copy(this.character.position);
         const direction = new THREE.Vector3();
@@ -370,7 +441,6 @@ export class PlanetEnvironment {
         const maxTime = 5.0;
         let maxHeight = startPos.y;
         let landingPoint = null;
-        
         for (let t = 0; t <= maxTime; t += timeStep) {
             const x = startPos.x + direction.x * vx * t;
             const z = startPos.z + direction.z * vx * t;
@@ -381,7 +451,7 @@ export class PlanetEnvironment {
                     landingPoint = new THREE.Vector3(x, 0.01, z);
                     this.updateLandingMarker(landingPoint);
                     this.flightData.theoreticalRange = Math.sqrt(
-                        Math.pow(x - startPos.x, 2) + 
+                        Math.pow(x - startPos.x, 2) +
                         Math.pow(z - startPos.z, 2)
                     );
                     this.flightData.maxHeight = maxHeight - startPos.y;
@@ -391,7 +461,6 @@ export class PlanetEnvironment {
             }
             points.push(new THREE.Vector3(x, y, z));
         }
-        
         if (this.trajectoryLine) {
             const geometry = new THREE.BufferGeometry().setFromPoints(points);
             this.trajectoryLine.geometry.dispose();
@@ -399,19 +468,13 @@ export class PlanetEnvironment {
             this.trajectoryLine.computeLineDistances();
             this.trajectoryLine.visible = true;
         }
-        
         this.displayFlightData();
     }
 
-    // Throws the ball using current aiming parameters and projectile motion
+    // Throws the ball and adjusts the camera.
     throwBall() {
         if (!this.isHoldingBall || this.ballThrown) return;
-        
         console.log("Throwing ball...");
-        console.log("Ball position:", this.ball.position);
-        console.log("Character position:", this.character.position);
-        console.log("Distance between ball and character:", this.ball.position.distanceTo(this.character.position));
-        
         if (this.character) {
             this.ballBody.position.copy(this.character.position);
             this.ballBody.position.y += 1.5;
@@ -419,13 +482,16 @@ export class PlanetEnvironment {
             this.ballBody.position.set(0, 2, 0);
         }
         this.ball.position.copy(this.ballBody.position);
-
         const direction = new THREE.Vector3();
         direction.copy(this.camera.getWorldDirection(new THREE.Vector3()));
         direction.y = 0;
         direction.normalize();
-        console.log("Throw force:", this.throwForce);
-        console.log("Throw angle:", this.throwAngle);
+        // Store the throw parameters.
+        this.initialThrowDirection = direction.clone();
+        this.storedThrowForce = this.throwForce;
+        this.storedThrowAngle = this.throwAngle;
+        // Save the throw origin as the character's current position (plus offset).
+        this.throwStartPosition.copy(this.character.position).add(new THREE.Vector3(0, 1.5, 0));
         const vx = this.throwForce * Math.cos(this.throwAngle);
         const vy = this.throwForce * Math.sin(this.throwAngle);
         this.ballBody.velocity.set(
@@ -433,20 +499,21 @@ export class PlanetEnvironment {
             vy,
             direction.z * vx
         );
-        
-        // Switch ball body to dynamic so gravity takes effect and remove damping for ideal projectile motion.
+        // Switch ball to dynamic with zero damping for ideal projectile motion.
         this.ballBody.type = CANNON.Body.DYNAMIC;
         this.ballBody.linearDamping = 0;
         this.ballBody.angularDamping = 0;
         this.isHoldingBall = false;
         this.ballThrown = true;
-        this.throwStartTime = performance.now(); // Record throw time for flight data
+        this.throwStartTime = performance.now();
         this.trajectoryLine.visible = false;
         this.landingMarker.visible = false;
         this.hidePhysicsCalculations();
+        // Adjust the camera to show the full trajectory.
+        this.adjustCameraForTrajectory();
     }
-    
-    // Tracks the ball flight by recording positions and updating max height and landing status
+
+    // (Optional) Tracks ball flight.
     trackBallFlight() {
         const trackingData = {
             startTime: performance.now(),
@@ -455,7 +522,6 @@ export class PlanetEnvironment {
             positions: [this.throwStartPosition.clone()],
             landed: false
         };
-        
         const trackingInterval = setInterval(() => {
             if (!this.ball || !this.ballBody) {
                 clearInterval(trackingInterval);
@@ -474,8 +540,8 @@ export class PlanetEnvironment {
             }
         }, 16);
     }
-    
-    // Displays detailed flight data and projectile motion analysis in the UI
+
+    // Displays flight data in the UI.
     displayActualFlightData(flightTime, distance, maxHeight) {
         const physicsPanel = this.controls.physicsPanel;
         if (!physicsPanel) return;
@@ -523,8 +589,8 @@ export class PlanetEnvironment {
             </div>
         `;
     }
-    
-    // Attaches the ball to the character's hand by using the leftArm's world position
+
+    // Attaches the ball to the character's left hand.
     attachBallToCharacter() {
         if (!this.character || !this.ball) return;
         let handWorldPos = new THREE.Vector3();
@@ -536,44 +602,44 @@ export class PlanetEnvironment {
             this.ballBody.position.copy(handWorldPos);
             this.ballBody.velocity.set(0, 0, 0);
             this.ballBody.angularVelocity.set(0, 0, 0);
-            // Set the ball body to kinematic while held
             this.ballBody.type = CANNON.Body.KINEMATIC;
         }
     }
-    
-    // Picks up the ball if within range and attaches it to the character
+
+    // Picks up the ball if within range.
     pickupBall() {
         if (!this.character || !this.ball || !this.ballBody) {
-          console.log("Cannot pick up ball - character or ball not found");
-          return;
+            console.log("Cannot pick up ball - character or ball not found");
+            return;
         }
-        
         const distanceToBall = this.character.position.distanceTo(this.ball.position);
         const pickupRange = 8.0;
         console.log("Distance to ball:", distanceToBall, "Pickup range:", pickupRange);
-        
         if (distanceToBall <= pickupRange) {
-          this.isHoldingBall = true;
-          this.isThrown = false;
-          this.attachBallToCharacter();
-          this.ballBody.position.copy(this.ball.position);
-          this.isAiming = false;
-          console.log(`Ball Position: X=${this.ball.position.x.toFixed(2)}, Y=${this.ball.position.y.toFixed(2)}, Z=${this.ball.position.z.toFixed(2)}`);
-          console.log(`Ball Body Position: X=${this.ballBody.position.x.toFixed(2)}, Y=${this.ballBody.position.y.toFixed(2)}, Z=${this.ballBody.position.z.toFixed(2)}`);
-          console.log("Ball picked up");
+            this.isHoldingBall = true;
+            this.isThrown = false;
+            this.attachBallToCharacter();
+            this.ballBody.position.copy(this.ball.position);
+            this.isAiming = false;
+            if (this.secondaryTrajectoryLine) {
+                this.secondaryTrajectoryLine.visible = false;
+            }
+            console.log(`Ball Position: X=${this.ball.position.x.toFixed(2)}, Y=${this.ball.position.y.toFixed(2)}, Z=${this.ball.position.z.toFixed(2)}`);
+            console.log(`Ball Body Position: X=${this.ballBody.position.x.toFixed(2)}, Y=${this.ballBody.position.y.toFixed(2)}, Z=${this.ballBody.position.z.toFixed(2)}`);
+            console.log("Ball picked up");
         } else {
-          console.log("Ball is too far away to pick up");
+            console.log("Ball is too far away to pick up");
         }
         this.isHoldingBall = true;
         this.ballThrown = false;
     }
-    
-    // Mouse down event: handles aiming and throwing via mouse click
+
+    // Mouse down: if aiming, throw the ball.
     onMouseDown(event) {
         if (event.button !== 0) return;
-        if (event.target.tagName === 'BUTTON' || 
-            event.target.tagName === 'INPUT' || 
-            event.target.closest('.throw-control-container') || 
+        if (event.target.tagName === 'BUTTON' ||
+            event.target.tagName === 'INPUT' ||
+            event.target.closest('.throw-control-container') ||
             event.target.closest('.flight-data-display')) {
             return;
         }
@@ -583,7 +649,7 @@ export class PlanetEnvironment {
         }
     }
 
-    // Mouse move event: updates throw angle based on mouse position when aiming
+    // Mouse move: update aiming angle.
     onMouseMove(event) {
         if (this.isAiming) {
             const centerX = window.innerWidth / 2;
@@ -602,14 +668,14 @@ export class PlanetEnvironment {
         }
     }
 
-    // Mouse up event: stops aiming mode
+    // Mouse up: stop aiming.
     onMouseUp(event) {
         if (this.isAiming) {
             this.isAiming = false;
         }
     }
 
-    // Creates UI controls for the physics panel
+    // Creates the UI controls.
     createControls() {
         const controlsContainer = document.createElement('div');
         controlsContainer.style.position = 'absolute';
@@ -627,14 +693,12 @@ export class PlanetEnvironment {
         physicsPanel.style.fontFamily = 'Arial, sans-serif';
         physicsPanel.style.display = 'none';
         physicsPanel.style.zIndex = '1000';
-        this.controls = {
-            physicsPanel
-        };
+        this.controls = { physicsPanel };
         controlsContainer.appendChild(physicsPanel);
         document.body.appendChild(controlsContainer);
     }
 
-    // Setup function: initializes planet environment, physics, character, and the unified ball
+    // Setup: initializes environment, physics, character, and ball.
     async setup(planetName) {
         console.log('Setting up planet environment for:', planetName);
         try {
@@ -651,7 +715,6 @@ export class PlanetEnvironment {
             await this.createPlanetEnvironment(planetName);
             this.createCharacter();
             console.log("Character created at position:", this.character ? this.character.position : "Character not created");
-            // Use unified ball created in initProjectilePhysics()
             this.initProjectilePhysics();
             console.log("Ball created at position:", this.ball ? this.ball.position : "Ball not created");
             this.setupCameraControls();
@@ -663,7 +726,7 @@ export class PlanetEnvironment {
         }
     }
 
-    // Sets up the physics world and contact materials
+    // Sets up the physics world and contact materials.
     setupPhysics() {
         this.physicsWorld = new CANNON.World();
         this.physicsWorld.gravity.set(0, -9.82, 0);
@@ -697,7 +760,7 @@ export class PlanetEnvironment {
         this.physicsWorld.addContactMaterial(groundBallCM);
     }
 
-    // Sets up camera controls using OrbitControls
+    // Sets up OrbitControls.
     setupCameraControls() {
         this.controls = new OrbitControls(this.camera, this.renderer.domElement);
         this.controls.enableDamping = true;
@@ -712,7 +775,7 @@ export class PlanetEnvironment {
         this.controls.smoothingTime = 0.5;
     }
 
-    // Creates the planet environment including terrain, skybox, lights, and stars
+    // Creates the planet environment.
     async createPlanetEnvironment(planetName) {
         const skyboxGeometry = new THREE.BoxGeometry(1000, 1000, 1000);
         const skyboxMaterial = new THREE.MeshBasicMaterial({
@@ -839,12 +902,12 @@ export class PlanetEnvironment {
         this.scene.fog = new THREE.FogExp2(0x000020, 0.0015);
     }
 
-    // Returns the height at a given (x, z) position (flat plane so returns 0)
+    // For a flat plane, returns 0.
     findHeightAtPosition(x, z) {
         return 0;
     }
 
-    // Creates the character with physics and visual representation
+    // Creates the character and its physics body.
     createCharacter() {
         this.character = new THREE.Group();
         const bodyMaterial = new THREE.MeshStandardMaterial({ color: 0x2196f3 });
@@ -881,11 +944,10 @@ export class PlanetEnvironment {
         rightLeg.position.set(0.6, 0.8, 0);
         rightLeg.castShadow = true;
       
-        // Connect all parts to the character group
         this.character.add(body);
         this.character.add(head);
         this.character.add(leftArm);
-        this.character.leftArm = leftArm; // Store leftArm reference for ball attachment
+        this.character.leftArm = leftArm;
         this.character.add(rightArm);
         this.character.add(leftLeg);
         this.character.add(rightLeg);
@@ -916,7 +978,7 @@ export class PlanetEnvironment {
         this.physicsWorld.addBody(this.characterBody);
     }
 
-    // Cleanup: removes event listeners and game objects from the scene and physics world
+    // Cleanup: removes event listeners and objects.
     cleanup() {
         window.removeEventListener('keydown', this.onKeyDown);
         window.removeEventListener('keyup', this.onKeyUp);
@@ -929,6 +991,9 @@ export class PlanetEnvironment {
         }
         if (this.landingMarker) {
             this.scene.remove(this.landingMarker);
+        }
+        if (this.secondaryTrajectoryLine) {
+            this.scene.remove(this.secondaryTrajectoryLine);
         }
         this.removeFlightDataDisplay();
         this.isInUpdateLoop = false;
@@ -950,7 +1015,7 @@ export class PlanetEnvironment {
         }
     }
 
-    // Updates the landing marker position and flight range data
+    // Updates the landing marker position and flight range.
     updateLandingMarker(position) {
         this.landingMarker.position.copy(position);
         this.landingMarker.position.y = 0.01;
@@ -958,8 +1023,8 @@ export class PlanetEnvironment {
         const distance = this.throwStartPosition.distanceTo(position);
         this.flightData.range = distance;
     }
-    
-    // Updates flight data based on the elapsed time and physics calculations
+
+    // Updates flight data based on elapsed time.
     updateFlightData() {
         const flightTime = (performance.now() - this.throwStartTime) / 1000;
         this.flightData.flightTime = flightTime;
@@ -972,15 +1037,15 @@ export class PlanetEnvironment {
         const range = (velocity * velocity * Math.sin(2 * angle)) / this.gravity;
         this.flightData.theoreticalRange = range;
     }
-    
-    // Displays flight data in a UI overlay
+
+    // Displays flight data in the UI.
     displayFlightData() {
         if (!this.flightDataDisplay) {
             this.flightDataDisplay = document.createElement('div');
             this.flightDataDisplay.className = 'flight-data-display';
             this.flightDataDisplay.style.position = 'absolute';
             this.flightDataDisplay.style.top = '10px';
-            this.flightDataDisplay.style.right = '10px';
+            this.flightDataDisplay.style.left = '10px'; // Changed from right to left
             this.flightDataDisplay.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
             this.flightDataDisplay.style.color = 'white';
             this.flightDataDisplay.style.padding = '15px';
@@ -1013,28 +1078,28 @@ export class PlanetEnvironment {
                 <span>${this.flightData.theoreticalRange ? this.flightData.theoreticalRange.toFixed(2) : "0.00"} m</span>
             </div>
             <div style="margin-top: 10px; font-size: 0.9em; color: #aaaaaa; text-align: center;">
-                ${this.isThrown ? "Projectile in flight" : this.isAiming ? "Aiming mode" : "Ready to aim"}
+                ${this.ballThrown ? "Projectile in flight" : this.isAiming ? "Aiming mode" : "Ready to aim"}
             </div>
         `;
     }
     
-    // Removes the flight data UI display
+    // Removes the flight data UI.
     removeFlightDataDisplay() {
         if (this.flightDataDisplay) {
             document.body.removeChild(this.flightDataDisplay);
             this.flightDataDisplay = null;
         }
     }
-    
-    // Removes throw control UI elements
+
+    // Removes any throw control UI.
     removeThrowControls() {
         const existingControls = document.querySelector('.throw-control-container');
         if (existingControls) {
             document.body.removeChild(existingControls);
         }
     }
-    
-    // Toggles the state of holding the ball
+
+    // Toggles ball holding state.
     toggleHoldBall() {
         if (this.isThrown) {
             console.log("Cannot pick up ball - it's in flight");
@@ -1047,7 +1112,7 @@ export class PlanetEnvironment {
         console.log("Ball holding state toggled. isHoldingBall:", this.isHoldingBall);
     }
 
-    // Stops aiming mode and hides the trajectory visualization
+    // Stops aiming.
     stopAiming() {
         this.isAiming = false;
         if (this.trajectoryLine) {
@@ -1059,7 +1124,7 @@ export class PlanetEnvironment {
         console.log("Aiming stopped");
     }
 
-    // Clears the trajectory preview visualization
+    // Clears trajectory preview.
     clearTrajectoryPreview() {
         if (this.trajectoryLine) {
             this.trajectoryLine.visible = false;
@@ -1072,7 +1137,7 @@ export class PlanetEnvironment {
         }
     }
 
-    // Updates the trajectory preview based on current throw parameters
+    // Updates the forward (green) trajectory preview while aiming.
     updateTrajectoryPreview() {
         if (!this.isHoldingBall) return;
         const startPos = new THREE.Vector3();
@@ -1094,7 +1159,6 @@ export class PlanetEnvironment {
         const maxTime = 5.0;
         let maxHeight = startPos.y;
         let landingPoint = null;
-        
         for (let t = 0; t <= maxTime; t += timeStep) {
             const x = startPos.x + direction.x * vx * t;
             const z = startPos.z + direction.z * vx * t;
@@ -1105,7 +1169,7 @@ export class PlanetEnvironment {
                     landingPoint = new THREE.Vector3(x, 0.01, z);
                     this.updateLandingMarker(landingPoint);
                     this.flightData.theoreticalRange = Math.sqrt(
-                        Math.pow(x - startPos.x, 2) + 
+                        Math.pow(x - startPos.x, 2) +
                         Math.pow(z - startPos.z, 2)
                     );
                     this.flightData.maxHeight = maxHeight - startPos.y;
@@ -1115,7 +1179,6 @@ export class PlanetEnvironment {
             }
             points.push(new THREE.Vector3(x, y, z));
         }
-        
         if (this.trajectoryLine) {
             const geometry = new THREE.BufferGeometry().setFromPoints(points);
             this.trajectoryLine.geometry.dispose();
@@ -1123,11 +1186,10 @@ export class PlanetEnvironment {
             this.trajectoryLine.computeLineDistances();
             this.trajectoryLine.visible = true;
         }
-        
         this.updatePhysicsCalculations();
     }
 
-    // Updates physics calculations and displays them in the UI
+    // Updates physics calculations.
     updatePhysicsCalculations() {
         if (!this.isHoldingBall) return;
         const g = 9.82;
@@ -1157,16 +1219,16 @@ export class PlanetEnvironment {
         this.flightData.maxHeight = maxHeight;
         this.flightData.flightTime = timeOfFlight;
     }
-    
-    // Hides the physics calculations UI
+
+    // Hides the physics calculations UI.
     hidePhysicsCalculations() {
         const physicsElement = document.getElementById('physics-calculations');
         if (physicsElement) {
             physicsElement.innerHTML = '';
         }
     }
-    
-    // Resets the ball to the holding state and updates its position
+
+    // Resets the ball to the held state.
     resetBall() {
         this.isHoldingBall = true;
         this.ballThrown = false;
@@ -1182,7 +1244,7 @@ export class PlanetEnvironment {
         this.updatePhysicsCalculations();
     }
 
-    // Handles key down events for movement and special actions
+    // Handles key down events (movement and pickup/drop via 'e')
     onKeyDown(event) {
         const key = event.key.toLowerCase();
         if (this.keyStates.hasOwnProperty(key)) {
@@ -1190,6 +1252,7 @@ export class PlanetEnvironment {
             if (key === 'e') {
                 console.log("E key pressed. isHoldingBall:", this.isHoldingBall);
                 if (this.isHoldingBall) {
+                    // Drop the ball: switch to dynamic so it falls.
                     this.isHoldingBall = false;
                     if (this.isAiming) {
                         this.stopAiming();
@@ -1216,7 +1279,7 @@ export class PlanetEnvironment {
         }
     }
 
-    // Handles key down events for projectile motion controls
+    // Handles projectile motion key down events (adjust force/angle/throw)
     onProjectileKeyDown(event) {
         const key = event.key.toLowerCase();
         if (this.projectileKeyStates.hasOwnProperty(key)) {
@@ -1247,7 +1310,7 @@ export class PlanetEnvironment {
         }
     }
     
-    // Handles key up events for projectile motion controls
+    // Handles projectile motion key up events
     onProjectileKeyUp(event) {
         const key = event.key.toLowerCase();
         if (this.projectileKeyStates.hasOwnProperty(key)) {
