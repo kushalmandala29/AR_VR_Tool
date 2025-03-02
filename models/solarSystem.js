@@ -278,14 +278,14 @@ export default class SolarSystem {
                 }
 
                 // Setup hand tracking to control the ball
-                if (this.handTracker) {
-                    this.handTracker.onThrowCallback = (position, velocity) => {
-                        if (this.planetEnvironment && this.planetEnvironment.ballBody) {
-                            this.planetEnvironment.throwBall(velocity.multiplyScalar(10));
-                        }
-                    };
-                }
-            }).catch(error => {
+            //     if (this.handTracker) {
+            //         this.handTracker.onThrowCallback = (position, velocity) => {
+            //             if (this.planetEnvironment && this.planetEnvironment.ballBody) {
+            //                 this.planetEnvironment.throwBall(velocity.multiplyScalar(10));
+            //             }
+            //         };
+            //     }
+            // }).catch(error => {
                 console.error('Failed to setup planet environment:', error);
             });
 
