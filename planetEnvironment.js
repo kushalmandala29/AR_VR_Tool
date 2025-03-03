@@ -1,5 +1,6 @@
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.145.0/build/three.module.js';
 import * as CANNON from 'https://cdn.jsdelivr.net/npm/cannon-es@0.20.0/dist/cannon-es.js';
+import { CSS2DRenderer, CSS2DObject } from 'https://cdn.jsdelivr.net/npm/three@0.145.0/examples/jsm/renderers/CSS2DRenderer.js';
 import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.145.0/examples/jsm/controls/OrbitControls.js';
 
 export class PlanetEnvironment {
@@ -23,7 +24,13 @@ export class PlanetEnvironment {
             theoreticalRange: 0,
             theoreticalTime: 0
         };
-
+        this.labelRenderer = new CSS2DRenderer();
+        this.labelRenderer.setSize(window.innerWidth, window.innerHeight);
+        this.labelRenderer.domElement.style.position = 'absolute';
+        this.labelRenderer.domElement.style.top = '0';
+        document.body.appendChild(this.labelRenderer.domElement);
+        this.secondaryAngleLabel = null;
+        this.projectileExplanationBoard = null;
         // Movement controls for the character.
         this.keyStates = {
             'w': false,
@@ -140,14 +147,17 @@ export class PlanetEnvironment {
 
     // Updates the secondary (red) trajectory line.
     updateSecondaryTrajectory() {
-        // Use the current character position as the starting point.
+        // Use the current character position as the starting point
         const startPos = this.character.position.clone().add(new THREE.Vector3(0, 1.5, 0));
-        // Use stored throw parameters.
+
+        // Use stored throw parameters
         const vx = this.storedThrowForce * Math.cos(this.storedThrowAngle);
         const vy = this.storedThrowForce * Math.sin(this.storedThrowAngle);
+
         const points = [];
         const timeStep = 0.1;
         const maxTime = 5.0;
+
         for (let t = 0; t <= maxTime; t += timeStep) {
             const x = startPos.x + this.initialThrowDirection.x * vx * t;
             const z = startPos.z + this.initialThrowDirection.z * vx * t;
@@ -155,8 +165,10 @@ export class PlanetEnvironment {
             if (y < 0) break;
             points.push(new THREE.Vector3(x, y, z));
         }
+
         if (points.length === 0) return;
-        // Create or update the secondary trajectory line.
+
+        // Create or update the secondary (red) line
         if (!this.secondaryTrajectoryLine) {
             const geometry = new THREE.BufferGeometry().setFromPoints(points);
             const material = new THREE.LineDashedMaterial({
@@ -177,7 +189,36 @@ export class PlanetEnvironment {
             this.secondaryTrajectoryLine.computeLineDistances();
             this.secondaryTrajectoryLine.visible = true;
         }
+
+        // ------------------------------------------------
+        // LABEL FOR THE ANGLE (using CSS2DObject)
+        // ------------------------------------------------
+        const angleDeg = (this.storedThrowAngle * 180 / Math.PI).toFixed(2);
+
+        // If not created yet, create the label
+        if (!this.secondaryAngleLabel) {
+            const angleDiv = document.createElement('div');
+            angleDiv.className = 'angle-label';
+            angleDiv.style.color = 'white';
+            angleDiv.style.fontSize = '12px';
+            angleDiv.style.backgroundColor = 'rgba(0, 0, 0, 0.6)';
+            angleDiv.style.padding = '4px 6px';
+            angleDiv.style.borderRadius = '4px';
+            angleDiv.textContent = `Angle: ${angleDeg}°`;
+
+            this.secondaryAngleLabel = new CSS2DObject(angleDiv);
+            this.scene.add(this.secondaryAngleLabel);
+        } else {
+            // If it exists, just update the text
+            this.secondaryAngleLabel.element.textContent = `Angle: ${angleDeg}°`;
+        }
+
+        // Position the label near the first point of the trajectory
+        const labelPos = points[0].clone();
+        labelPos.y += 0.5; // small vertical offset
+        this.secondaryAngleLabel.position.copy(labelPos);
     }
+
 
     // ---------------------- End New Helper Functions ----------------------
 
@@ -277,7 +318,121 @@ export class PlanetEnvironment {
             this.scene.add(this.landingMarker);
         }
     }
+    hideProjectileExplanation() {
+        if (this.projectileExplanationBoard) {
+            document.body.removeChild(this.projectileExplanationBoard);
+            this.projectileExplanationBoard = null;
+        }
+    }
+    showProjectileExplanation() {
+       // If board is already open, don't recreate
+       if (this.projectileExplanationBoard) return;
 
+       // Example: read data from flightData or your stored variables
+       const u = this.flightData.initialVelocity;  
+       const angleRad = this.flightData.angle;     
+       const angleDeg = (angleRad * 180 / Math.PI);
+       const g = 9.81;
+       const sinAngle = Math.sin(angleRad);
+
+       // Calculate T, H, R (for numeric substitution)
+       const numeratorT = 2 * u * sinAngle;
+       const timeOfFlight = numeratorT / g;
+       const vy = u * sinAngle;
+       const numeratorH = vy * vy;
+       const denominatorH = 2 * g;
+       const maxHeight = numeratorH / denominatorH;
+       const sinDoubleAngle = Math.sin(2 * angleRad);
+       const numeratorR = (u * u) * sinDoubleAngle;
+       const rangeVal = numeratorR / g;
+
+       // Create container
+       const board = document.createElement('div');
+       board.style.position = 'absolute';
+
+       // 4) Random position on screen for a dynamic effect
+        // adjust as you like
+       board.style.top = '10px';
+       board.style.left = '10px';
+
+       board.style.width = '360px';
+       board.style.padding = '12px';
+       board.style.borderRadius = '8px';
+       board.style.backgroundColor = 'rgba(0, 0, 0, 0.85)';
+       board.style.color = 'white';
+       board.style.fontFamily = 'Arial, sans-serif';
+       board.style.zIndex = '9999';
+
+       // Fill the step-by-step HTML
+       board.innerHTML = `
+           <h2 style="margin-top: 0;">Step-by-Step Calculation</h2>
+           <h3>Step 1: Given Data</h3>
+           <p>
+               Initial velocity (u) = ${u.toFixed(2)} m/s<br>
+               Angle (θ) = ${angleDeg.toFixed(2)}°<br>
+               Gravity (g) = 9.81 m/s²
+           </p>
+
+           <h3>Step 2: Find Time of Flight (T)</h3>
+           <p>
+               T = (2 × u × sinθ) / g<br>
+               => T = (2 × ${u.toFixed(2)} × sin(${angleDeg.toFixed(2)}°)) / 9.81
+           </p>
+           <p>
+               sin(${angleDeg.toFixed(2)}°) ≈ ${sinAngle.toFixed(3)}<br>
+               => T = (${(2*u).toFixed(2)} × ${sinAngle.toFixed(3)}) / 9.81<br>
+               => T = ${numeratorT.toFixed(2)} / 9.81<br>
+               => T = ${timeOfFlight.toFixed(2)} s
+           </p>
+
+           <h3>Step 3: Find Maximum Height (H)</h3>
+           <p>
+               H = (u² sin²θ) / (2g)<br>
+               => Numerator = (u sinθ)² = ${(vy).toFixed(2)}² = ${(numeratorH).toFixed(2)}<br>
+               => Denominator = 2 × 9.81 = ${(denominatorH).toFixed(2)}<br>
+               => H = ${(maxHeight).toFixed(2)} m
+           </p>
+
+           <h3>Step 4: Find Range (R)</h3>
+           <p>
+               R = (u² × sin(2θ)) / g<br>
+               => sin(2θ) = ${sinDoubleAngle.toFixed(3)}<br>
+               => Numerator = ${(u*u).toFixed(2)} × ${sinDoubleAngle.toFixed(3)} = ${(numeratorR).toFixed(2)}<br>
+               => Denominator = 9.81<br>
+               => R = ${(rangeVal).toFixed(2)} m
+           </p>
+
+           <h3>Final Answers</h3>
+           <ul>
+               <li>Time of Flight = ${timeOfFlight.toFixed(2)} s</li>
+               <li>Maximum Height = ${maxHeight.toFixed(2)} m</li>
+               <li>Range = ${rangeVal.toFixed(2)} m</li>
+           </ul>
+
+           <button id="closeBoardBtn" style="
+               margin-top: 10px; 
+               padding: 5px 10px; 
+               background: #f44336; 
+               border: none; 
+               border-radius: 4px; 
+               color: #fff; 
+               cursor: pointer;">
+               Close
+           </button>
+       `;
+
+       // Add to the DOM
+       document.body.appendChild(board);
+       this.projectileExplanationBoard = board;
+
+       // Close button logic
+       const closeBtn = document.getElementById('closeBoardBtn');
+       closeBtn.addEventListener('click', () => {
+           this.hideProjectileExplanation();
+       });
+   }
+
+    
     // Update loop: handles physics, camera, character movement, and trajectory updates.
     update() {
         const time = performance.now();
@@ -302,7 +457,9 @@ export class PlanetEnvironment {
                     this.isThrown = false;
                     this.ballThrown = false;
                     this.updateLandingMarker(new THREE.Vector3(newX, 0.01, newZ));
-                    this.displayFlightData();
+                    // this.displayFlightData();
+                    this.showProjectileExplanation();
+
                 }
             } else if (this.physicsWorld && this.ballBody && this.ball) {
                 this.updateProjectilePhysics(delta);
@@ -335,6 +492,13 @@ export class PlanetEnvironment {
         }
         
         requestAnimationFrame(this.update.bind(this));
+        this.renderer.render(this.scene, this.camera);
+            // Add this line for the label renderer
+        if (this.labelRenderer) {
+        this.labelRenderer.render(this.scene, this.camera);
+    }
+
+
     }
 
     // Advances the physics simulation and syncs the ball mesh.
@@ -611,6 +775,8 @@ export class PlanetEnvironment {
         if (!this.character || !this.ball || !this.ballBody) {
             console.log("Cannot pick up ball - character or ball not found");
             return;
+        
+        this.hideProjectileExplanation();
         }
         const distanceToBall = this.character.position.distanceTo(this.ball.position);
         // const pickupRange = 8.0;
@@ -773,6 +939,17 @@ export class PlanetEnvironment {
         this.controls.maxPolarAngle = Math.PI / 1.5;
         this.controls.enableSmoothing = true;
         this.controls.smoothingTime = 0.5;
+        // this.controls = new OrbitControls(this.camera, this.renderer.domElement);
+
+        // Create a CSS2DRenderer for 2D text labels
+        this.labelRenderer = new CSS2DRenderer();
+        this.labelRenderer.setSize(window.innerWidth, window.innerHeight);
+        this.labelRenderer.domElement.style.position = 'absolute';
+        this.labelRenderer.domElement.style.top = '0';
+        document.body.appendChild(this.labelRenderer.domElement);
+        this.renderer.render(this.scene, this.camera);
+
+        this.labelRenderer.render(this.scene, this.camera);
     }
 
     // Creates the planet environment.
