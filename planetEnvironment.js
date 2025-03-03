@@ -613,9 +613,9 @@ export class PlanetEnvironment {
             return;
         }
         const distanceToBall = this.character.position.distanceTo(this.ball.position);
-        const pickupRange = 8.0;
-        console.log("Distance to ball:", distanceToBall, "Pickup range:", pickupRange);
-        if (distanceToBall <= pickupRange) {
+        // const pickupRange = 8.0;
+        // console.log("Distance to ball:", distanceToBall, "Pickup range:", pickupRange);
+        // if (distanceToBall <= pickupRange) {
             this.isHoldingBall = true;
             this.isThrown = false;
             this.attachBallToCharacter();
@@ -624,14 +624,14 @@ export class PlanetEnvironment {
             if (this.secondaryTrajectoryLine) {
                 this.secondaryTrajectoryLine.visible = false;
             }
-            console.log(`Ball Position: X=${this.ball.position.x.toFixed(2)}, Y=${this.ball.position.y.toFixed(2)}, Z=${this.ball.position.z.toFixed(2)}`);
-            console.log(`Ball Body Position: X=${this.ballBody.position.x.toFixed(2)}, Y=${this.ballBody.position.y.toFixed(2)}, Z=${this.ballBody.position.z.toFixed(2)}`);
-            console.log("Ball picked up");
-        } else {
-            console.log("Ball is too far away to pick up");
-        }
-        this.isHoldingBall = true;
-        this.ballThrown = false;
+            // console.log(`Ball Position: X=${this.ball.position.x.toFixed(2)}, Y=${this.ball.position.y.toFixed(2)}, Z=${this.ball.position.z.toFixed(2)}`);
+            // console.log(`Ball Body Position: X=${this.ballBody.position.x.toFixed(2)}, Y=${this.ballBody.position.y.toFixed(2)}, Z=${this.ballBody.position.z.toFixed(2)}`);
+        //     // console.log("Ball picked up");
+        // } else {
+        //     console.log("Ball is too far away to pick up");
+        // }
+        // this.isHoldingBall = true;
+        // this.ballThrown = false;
     }
 
     // Mouse down: if aiming, throw the ball.
