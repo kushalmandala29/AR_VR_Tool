@@ -1,6 +1,6 @@
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.145.0/build/three.module.js';
 import * as CANNON from 'https://cdn.jsdelivr.net/npm/cannon-es@0.20.0/dist/cannon-es.js';
-import { CSS2DRenderer, CSS2DObject } from 'https://cdn.jsdelivr.net/npm/three@0.145.0/examples/jsm/renderers/CSS2DRenderer.js';
+// import { CSS2DRenderer, CSS2DObject } from 'https://cdn.jsdelivr.net/npm/three@0.145.0/examples/jsm/renderers/CSS2DRenderer.js';
 import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.145.0/examples/jsm/controls/OrbitControls.js';
 
 export class PlanetEnvironment {
@@ -24,11 +24,11 @@ export class PlanetEnvironment {
             theoreticalRange: 0,
             theoreticalTime: 0
         };
-        this.labelRenderer = new CSS2DRenderer();
-        this.labelRenderer.setSize(window.innerWidth, window.innerHeight);
-        this.labelRenderer.domElement.style.position = 'absolute';
-        this.labelRenderer.domElement.style.top = '0';
-        document.body.appendChild(this.labelRenderer.domElement);
+        // this.labelRenderer = new CSS2DRenderer();
+        // this.labelRenderer.setSize(window.innerWidth, window.innerHeight);
+        // this.labelRenderer.domElement.style.position = 'absolute';
+        // this.labelRenderer.domElement.style.top = '0';
+        // document.body.appendChild(this.labelRenderer.domElement);
         this.secondaryAngleLabel = null;
         this.projectileExplanationBoard = null;
         // Movement controls for the character.
@@ -193,25 +193,25 @@ export class PlanetEnvironment {
         // ------------------------------------------------
         // LABEL FOR THE ANGLE (using CSS2DObject)
         // ------------------------------------------------
-        const angleDeg = (this.storedThrowAngle * 180 / Math.PI).toFixed(2);
+        // const angleDeg = (this.storedThrowAngle * 180 / Math.PI).toFixed(2);
 
         // If not created yet, create the label
-        if (!this.secondaryAngleLabel) {
-            const angleDiv = document.createElement('div');
-            angleDiv.className = 'angle-label';
-            angleDiv.style.color = 'white';
-            angleDiv.style.fontSize = '12px';
-            angleDiv.style.backgroundColor = 'rgba(0, 0, 0, 0.6)';
-            angleDiv.style.padding = '4px 6px';
-            angleDiv.style.borderRadius = '4px';
-            angleDiv.textContent = `Angle: ${angleDeg}°`;
+        // if (!this.secondaryAngleLabel) {
+        //     const angleDiv = document.createElement('div');
+        //     angleDiv.className = 'angle-label';
+        //     angleDiv.style.color = 'white';
+        //     angleDiv.style.fontSize = '12px';
+        //     angleDiv.style.backgroundColor = 'rgba(0, 0, 0, 0.6)';
+        //     angleDiv.style.padding = '4px 6px';
+        //     angleDiv.style.borderRadius = '4px';
+        //     angleDiv.textContent = `Angle: ${angleDeg}°`;
 
-            this.secondaryAngleLabel = new CSS2DObject(angleDiv);
-            this.scene.add(this.secondaryAngleLabel);
-        } else {
-            // If it exists, just update the text
-            this.secondaryAngleLabel.element.textContent = `Angle: ${angleDeg}°`;
-        }
+        //     this.secondaryAngleLabel = new CSS2DObject(angleDiv);
+        //     this.scene.add(this.secondaryAngleLabel);
+        // } else {
+        //     // If it exists, just update the text
+        //     this.secondaryAngleLabel.element.textContent = `Angle: ${angleDeg}°`;
+        // }
 
         // Position the label near the first point of the trajectory
         const labelPos = points[0].clone();
@@ -318,6 +318,13 @@ export class PlanetEnvironment {
             this.scene.add(this.landingMarker);
         }
     }
+    
+    hidePhysicsCalculations() {
+        const physicsElement = document.getElementById('physics-calculations');
+        if (physicsElement) {
+            physicsElement.innerHTML = '';
+        }
+    }
     hideProjectileExplanation() {
         if (this.projectileExplanationBoard) {
             document.body.removeChild(this.projectileExplanationBoard);
@@ -325,112 +332,124 @@ export class PlanetEnvironment {
         }
     }
     showProjectileExplanation() {
-       // If board is already open, don't recreate
-       if (this.projectileExplanationBoard) return;
-
-       // Example: read data from flightData or your stored variables
-       const u = this.flightData.initialVelocity;  
-       const angleRad = this.flightData.angle;     
-       const angleDeg = (angleRad * 180 / Math.PI);
-       const g = 9.81;
-       const sinAngle = Math.sin(angleRad);
-
-       // Calculate T, H, R (for numeric substitution)
-       const numeratorT = 2 * u * sinAngle;
-       const timeOfFlight = numeratorT / g;
-       const vy = u * sinAngle;
-       const numeratorH = vy * vy;
-       const denominatorH = 2 * g;
-       const maxHeight = numeratorH / denominatorH;
-       const sinDoubleAngle = Math.sin(2 * angleRad);
-       const numeratorR = (u * u) * sinDoubleAngle;
-       const rangeVal = numeratorR / g;
-
-       // Create container
-       const board = document.createElement('div');
-       board.style.position = 'absolute';
-
-       // 4) Random position on screen for a dynamic effect
-        // adjust as you like
-       board.style.top = '10px';
-       board.style.left = '10px';
-
-       board.style.width = '360px';
-       board.style.padding = '12px';
-       board.style.borderRadius = '8px';
-       board.style.backgroundColor = 'rgba(0, 0, 0, 0.85)';
-       board.style.color = 'white';
-       board.style.fontFamily = 'Arial, sans-serif';
-       board.style.zIndex = '9999';
-
-       // Fill the step-by-step HTML
-       board.innerHTML = `
-           <h2 style="margin-top: 0;">Step-by-Step Calculation</h2>
-           <h3>Step 1: Given Data</h3>
-           <p>
-               Initial velocity (u) = ${u.toFixed(2)} m/s<br>
-               Angle (θ) = ${angleDeg.toFixed(2)}°<br>
-               Gravity (g) = 9.81 m/s²
-           </p>
-
-           <h3>Step 2: Find Time of Flight (T)</h3>
-           <p>
-               T = (2 × u × sinθ) / g<br>
-               => T = (2 × ${u.toFixed(2)} × sin(${angleDeg.toFixed(2)}°)) / 9.81
-           </p>
-           <p>
-               sin(${angleDeg.toFixed(2)}°) ≈ ${sinAngle.toFixed(3)}<br>
-               => T = (${(2*u).toFixed(2)} × ${sinAngle.toFixed(3)}) / 9.81<br>
-               => T = ${numeratorT.toFixed(2)} / 9.81<br>
-               => T = ${timeOfFlight.toFixed(2)} s
-           </p>
-
-           <h3>Step 3: Find Maximum Height (H)</h3>
-           <p>
-               H = (u² sin²θ) / (2g)<br>
-               => Numerator = (u sinθ)² = ${(vy).toFixed(2)}² = ${(numeratorH).toFixed(2)}<br>
-               => Denominator = 2 × 9.81 = ${(denominatorH).toFixed(2)}<br>
-               => H = ${(maxHeight).toFixed(2)} m
-           </p>
-
-           <h3>Step 4: Find Range (R)</h3>
-           <p>
-               R = (u² × sin(2θ)) / g<br>
-               => sin(2θ) = ${sinDoubleAngle.toFixed(3)}<br>
-               => Numerator = ${(u*u).toFixed(2)} × ${sinDoubleAngle.toFixed(3)} = ${(numeratorR).toFixed(2)}<br>
-               => Denominator = 9.81<br>
-               => R = ${(rangeVal).toFixed(2)} m
-           </p>
-
-           <h3>Final Answers</h3>
-           <ul>
-               <li>Time of Flight = ${timeOfFlight.toFixed(2)} s</li>
-               <li>Maximum Height = ${maxHeight.toFixed(2)} m</li>
-               <li>Range = ${rangeVal.toFixed(2)} m</li>
-           </ul>
-
-           <button id="closeBoardBtn" style="
-               margin-top: 10px; 
-               padding: 5px 10px; 
-               background: #f44336; 
-               border: none; 
-               border-radius: 4px; 
-               color: #fff; 
-               cursor: pointer;">
-               Close
-           </button>
-       `;
-
-       // Add to the DOM
-       document.body.appendChild(board);
-       this.projectileExplanationBoard = board;
-
-       // Close button logic
-       const closeBtn = document.getElementById('closeBoardBtn');
-       closeBtn.addEventListener('click', () => {
-           this.hideProjectileExplanation();
-       });
-   }
+        // If board is already open, don't recreate it.
+        if (this.projectileExplanationBoard) return;
+    
+        // Calculate values from flightData
+        const u = this.flightData.initialVelocity;
+        const angleRad = this.flightData.angle;
+        const angleDeg = (angleRad * 180 / Math.PI);
+        const g = 9.81;
+        const sinAngle = Math.sin(angleRad);
+        const numeratorT = 2 * u * sinAngle;
+        const timeOfFlight = numeratorT / g;
+        const vy = u * sinAngle;
+        const numeratorH = vy * vy;
+        const denominatorH = 2 * g;
+        const maxHeight = numeratorH / denominatorH;
+        const sinDoubleAngle = Math.sin(2 * angleRad);
+        const numeratorR = (u * u) * sinDoubleAngle;
+        const rangeVal = numeratorR / g;
+    
+        // Create container for the explanation board
+        const board = document.createElement('div');
+        board.style.position = 'absolute';
+        board.style.top = '10px';
+        board.style.left = '10px';
+        board.style.width = '360px';
+        board.style.padding = '8px';
+        board.style.borderRadius = '8px';
+        board.style.backgroundColor = 'rgba(0, 0, 0, 0.85)';
+        board.style.color = 'white';
+        board.style.fontFamily = 'Arial, sans-serif';
+        board.style.fontSize = '14px';
+        board.style.lineHeight = '1.2';
+        board.style.zIndex = '9999';
+        document.body.appendChild(board);
+        this.projectileExplanationBoard = board;
+    
+        // Create the final HTML content as a single string.
+        const finalHTML = `
+            <h2 style="margin-top: 0;">Step-by-Step Calculation</h2>
+            <h3 style="margin: 4px 0;">Step 1: Given Data</h3>
+            <p style="margin: 2px 0;">Initial velocity (u) = ${u.toFixed(2)} m/s</p>
+            <p style="margin: 2px 0;">Angle (θ) = ${angleDeg.toFixed(2)}°</p>
+            <p style="margin: 2px 0;">Gravity (g) = 9.81 m/s²</p>
+            <h3 style="margin: 4px 0;">Step 2: Find Time of Flight (T)</h3>
+            <p style="margin: 2px 0;">T = (2 × u × sinθ) / g</p>
+            <p style="margin: 2px 0;">T = (2 × ${u.toFixed(2)} × sin(${angleDeg.toFixed(2)}°)) / 9.81</p>
+            <p style="margin: 2px 0;">sin(${angleDeg.toFixed(2)}°) ≈ ${sinAngle.toFixed(3)}</p>
+            <p style="margin: 2px 0;">T = (${(2*u).toFixed(2)} × ${sinAngle.toFixed(3)}) / 9.81</p>
+            <p style="margin: 2px 0;">T = ${numeratorT.toFixed(2)} / 9.81</p>
+            <p style="margin: 2px 0;">T = ${timeOfFlight.toFixed(2)} s</p>
+            <h3 style="margin: 4px 0;">Step 3: Find Maximum Height (H)</h3>
+            <p style="margin: 2px 0;">H = (u² sin²θ) / (2g)</p>
+            <p style="margin: 2px 0;">Numerator = (u sinθ)² = ${vy.toFixed(2)}² = ${numeratorH.toFixed(2)}</p>
+            <p style="margin: 2px 0;">Denominator = 2 × 9.81 = ${denominatorH.toFixed(2)}</p>
+            <p style="margin: 2px 0;">H = ${maxHeight.toFixed(2)} m</p>
+            <h3 style="margin: 4px 0;">Step 4: Find Range (R)</h3>
+            <p style="margin: 2px 0;">R = (u² × sin(2θ)) / g</p>
+            <p style="margin: 2px 0;">sin(2θ) = ${sinDoubleAngle.toFixed(3)}</p>
+            <p style="margin: 2px 0;">Numerator = ${(u*u).toFixed(2)} × ${sinDoubleAngle.toFixed(3)} = ${numeratorR.toFixed(2)}</p>
+            <p style="margin: 2px 0;">Denominator = 9.81</p>
+            <p style="margin: 2px 0;">R = ${rangeVal.toFixed(2)} m</p>
+            <button id="closeBoardBtn" style="
+                   margin-top: 6px; 
+                   padding: 4px 8px; 
+                   background: #f44336; 
+                   border: none; 
+                   border-radius: 4px; 
+                   color: #fff; 
+                   cursor: pointer;">
+                   Close
+             </button>
+        `;
+    
+        // Helper function for the typewriter effect.
+        function typeWriterEffect(text, container, speed, callback) {
+            let index = 0;
+            function addNext() {
+                if (index < text.length) {
+                    // If we detect an HTML tag, add the whole tag at once.
+                    if (text[index] === '<') {
+                        const endTag = text.indexOf('>', index);
+                        if (endTag === -1) {
+                            container.innerHTML += text.substring(index);
+                            index = text.length;
+                        } else {
+                            container.innerHTML += text.substring(index, endTag + 1);
+                            index = endTag + 1;
+                        }
+                        addNext(); // Immediately process the next part.
+                    } else {
+                        container.innerHTML += text[index];
+                        index++;
+                        setTimeout(addNext, speed);
+                    }
+                } else {
+                    if (callback) callback();
+                }
+            }
+            addNext();
+        }
+    
+        // Clear any current content in the board and start the typewriter effect.
+        board.innerHTML = '';
+        const letterSpeed = 40; // Adjust speed (ms) between letters as needed.
+        typeWriterEffect(finalHTML, board, letterSpeed, () => {
+            // When the effect is complete, attach the close button listener.
+            const closeBtn = document.getElementById('closeBoardBtn');
+            if (closeBtn) {
+                closeBtn.addEventListener('click', () => {
+                    this.hideProjectileExplanation();
+                });
+            }
+        });
+    }
+    
+    
+    
+    
 
     
     // Update loop: handles physics, camera, character movement, and trajectory updates.
@@ -494,9 +513,9 @@ export class PlanetEnvironment {
         requestAnimationFrame(this.update.bind(this));
         this.renderer.render(this.scene, this.camera);
             // Add this line for the label renderer
-        if (this.labelRenderer) {
-        this.labelRenderer.render(this.scene, this.camera);
-    }
+    //     if (this.labelRenderer) {
+    //     this.labelRenderer.render(this.scene, this.camera);
+    // }
 
 
     }
@@ -776,7 +795,7 @@ export class PlanetEnvironment {
             console.log("Cannot pick up ball - character or ball not found");
             return;
         
-        this.hideProjectileExplanation();
+        
         }
         const distanceToBall = this.character.position.distanceTo(this.ball.position);
         // const pickupRange = 8.0;
@@ -790,6 +809,7 @@ export class PlanetEnvironment {
             if (this.secondaryTrajectoryLine) {
                 this.secondaryTrajectoryLine.visible = false;
             }
+            this.hideProjectileExplanation();
             // console.log(`Ball Position: X=${this.ball.position.x.toFixed(2)}, Y=${this.ball.position.y.toFixed(2)}, Z=${this.ball.position.z.toFixed(2)}`);
             // console.log(`Ball Body Position: X=${this.ballBody.position.x.toFixed(2)}, Y=${this.ballBody.position.y.toFixed(2)}, Z=${this.ballBody.position.z.toFixed(2)}`);
         //     // console.log("Ball picked up");
@@ -939,17 +959,17 @@ export class PlanetEnvironment {
         this.controls.maxPolarAngle = Math.PI / 1.5;
         this.controls.enableSmoothing = true;
         this.controls.smoothingTime = 0.5;
-        // this.controls = new OrbitControls(this.camera, this.renderer.domElement);
+        this.controls = new OrbitControls(this.camera, this.renderer.domElement);
 
         // Create a CSS2DRenderer for 2D text labels
-        this.labelRenderer = new CSS2DRenderer();
-        this.labelRenderer.setSize(window.innerWidth, window.innerHeight);
-        this.labelRenderer.domElement.style.position = 'absolute';
-        this.labelRenderer.domElement.style.top = '0';
-        document.body.appendChild(this.labelRenderer.domElement);
+        // this.labelRenderer = new CSS2DRenderer();
+        // this.labelRenderer.setSize(window.innerWidth, window.innerHeight);
+        // this.labelRenderer.domElement.style.position = 'absolute';
+        // this.labelRenderer.domElement.style.top = '0';
+        // document.body.appendChild(this.labelRenderer.domElement);
         this.renderer.render(this.scene, this.camera);
 
-        this.labelRenderer.render(this.scene, this.camera);
+        // this.labelRenderer.render(this.scene, this.camera);
     }
 
     // Creates the planet environment.
@@ -1398,12 +1418,6 @@ export class PlanetEnvironment {
     }
 
     // Hides the physics calculations UI.
-    hidePhysicsCalculations() {
-        const physicsElement = document.getElementById('physics-calculations');
-        if (physicsElement) {
-            physicsElement.innerHTML = '';
-        }
-    }
 
     // Resets the ball to the held state.
     resetBall() {
