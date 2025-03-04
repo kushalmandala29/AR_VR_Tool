@@ -273,9 +273,9 @@ export default class SolarSystem {
             this.planetEnvironment.setup(planet.name).then(() => {
                 console.log('Planet environment setup complete');
                 // Add to animation loop
-                if (!this.planetEnvironment.isInUpdateLoop) {
-                    this.planetEnvironment.isInUpdateLoop = true;
-                }
+                // if (!this.planetEnvironment.isInUpdateLoop) {
+                //     this.planetEnvironment.isInUpdateLoop = true;
+                // }
 
                 // Setup hand tracking to control the ball
             //     if (this.handTracker) {

@@ -2,8 +2,21 @@ import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.145.0/build/three.m
 import * as CANNON from 'https://cdn.jsdelivr.net/npm/cannon-es@0.20.0/dist/cannon-es.js';
 // import { CSS2DRenderer, CSS2DObject } from 'https://cdn.jsdelivr.net/npm/three@0.145.0/examples/jsm/renderers/CSS2DRenderer.js';
 import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.145.0/examples/jsm/controls/OrbitControls.js';
-
+// Place this at the top of your file:
+const planetGravity = {
+    mercury: 3.7,
+    venus: 8.87,
+    earth: 9.81,
+    moon: 1.62,
+    mars: 3.71,
+    jupiter: 24.79,
+    saturn: 10.44,
+    uranus: 8.87,
+    neptune: 11.15
+  };
+  
 export class PlanetEnvironment {
+   
     constructor(scene, camera, renderer) {
         console.log('Initializing PlanetEnvironment...');
         this.scene = scene;
@@ -213,10 +226,10 @@ export class PlanetEnvironment {
         //     this.secondaryAngleLabel.element.textContent = `Angle: ${angleDeg}°`;
         // }
 
-        // Position the label near the first point of the trajectory
-        const labelPos = points[0].clone();
-        labelPos.y += 0.5; // small vertical offset
-        this.secondaryAngleLabel.position.copy(labelPos);
+        // // Position the label near the first point of the trajectory
+        // const labelPos = points[0].clone();
+        // labelPos.y += 0.5; // small vertical offset
+        // this.secondaryAngleLabel.position.copy(labelPos);
     }
 
 
@@ -337,6 +350,7 @@ export class PlanetEnvironment {
     
         // Calculate values from flightData
         const u = this.flightData.initialVelocity;
+        const graviity=this.gravity
         const angleRad = this.flightData.angle;
         const angleDeg = (angleRad * 180 / Math.PI);
         const g = 9.81;
@@ -374,7 +388,7 @@ export class PlanetEnvironment {
             <h3 style="margin: 4px 0;">Step 1: Given Data</h3>
             <p style="margin: 2px 0;">Initial velocity (u) = ${u.toFixed(2)} m/s</p>
             <p style="margin: 2px 0;">Angle (θ) = ${angleDeg.toFixed(2)}°</p>
-            <p style="margin: 2px 0;">Gravity (g) = 9.81 m/s²</p>
+            <p style="margin: 2px 0;">Gravity (g) = ${graviity.toFixed(2)} m/s}</p>
             <h3 style="margin: 4px 0;">Step 2: Find Time of Flight (T)</h3>
             <p style="margin: 2px 0;">T = (2 × u × sinθ) / g</p>
             <p style="margin: 2px 0;">T = (2 × ${u.toFixed(2)} × sin(${angleDeg.toFixed(2)}°)) / 9.81</p>
@@ -627,7 +641,7 @@ export class PlanetEnvironment {
         for (let t = 0; t <= maxTime; t += timeStep) {
             const x = startPos.x + direction.x * vx * t;
             const z = startPos.z + direction.z * vx * t;
-            const y = startPos.y + vy * t - (0.5 * 9.82 * t * t);
+            const y = startPos.y + vy * t - (0.5 * this.gravity * t * t);
             maxHeight = Math.max(maxHeight, y);
             if (y <= 0 && t > 0) {
                 if (!landingPoint) {
@@ -883,10 +897,12 @@ export class PlanetEnvironment {
         controlsContainer.appendChild(physicsPanel);
         document.body.appendChild(controlsContainer);
     }
+    
 
     // Setup: initializes environment, physics, character, and ball.
     async setup(planetName) {
-        console.log('Setting up planet environment for:', planetName);
+        this.gravity = planetGravity[planetName.toLowerCase()] || 9.81;
+        console.log(`Using gravity of ${this.gravity} m/s² for ${planetName}`);
         try {
             this.setupPhysics();
             this.physicsHandler = {
@@ -900,9 +916,9 @@ export class PlanetEnvironment {
             };
             await this.createPlanetEnvironment(planetName);
             this.createCharacter();
-            console.log("Character created at position:", this.character ? this.character.position : "Character not created");
+            // console.log("Character created at position:", this.character ? this.character.position : "Character not created");
             this.initProjectilePhysics();
-            console.log("Ball created at position:", this.ball ? this.ball.position : "Ball not created");
+            // console.log("Ball created at position:", this.ball ? this.ball.position : "Ball not created");
             this.setupCameraControls();
             this.isInUpdateLoop = true;
             console.log('Planet environment setup complete');
@@ -915,7 +931,7 @@ export class PlanetEnvironment {
     // Sets up the physics world and contact materials.
     setupPhysics() {
         this.physicsWorld = new CANNON.World();
-        this.physicsWorld.gravity.set(0, -9.82, 0);
+        this.physicsWorld.gravity.set(0, -this.gravity, 0);
         this.physicsWorld.broadphase = new CANNON.NaiveBroadphase();
         this.physicsWorld.solver.iterations = 10;
         this.physicsWorld.defaultContactMaterial.friction = 0.5;
@@ -1389,7 +1405,7 @@ export class PlanetEnvironment {
     // Updates physics calculations.
     updatePhysicsCalculations() {
         if (!this.isHoldingBall) return;
-        const g = 9.82;
+        const g = this.gravity
         const v0 = this.throwForce;
         const angle = this.throwAngle;
         const v0x = v0 * Math.cos(angle);
