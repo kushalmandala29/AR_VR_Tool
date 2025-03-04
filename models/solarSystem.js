@@ -271,21 +271,21 @@ export default class SolarSystem {
             // Setup planet environment
             console.log('Setting up planet environment');
             this.planetEnvironment.setup(planet.name).then(() => {
-                console.log('Planet environment setup complete');
-                // Add to animation loop
-                // if (!this.planetEnvironment.isInUpdateLoop) {
-                //     this.planetEnvironment.isInUpdateLoop = true;
-                // }
+            //     console.log('Planet environment setup complete');
+            //     // Add to animation loop
+            //     // if (!this.planetEnvironment.isInUpdateLoop) {
+            //     //     this.planetEnvironment.isInUpdateLoop = true;
+            //     // }
 
-                // Setup hand tracking to control the ball
-            //     if (this.handTracker) {
-            //         this.handTracker.onThrowCallback = (position, velocity) => {
-            //             if (this.planetEnvironment && this.planetEnvironment.ballBody) {
-            //                 this.planetEnvironment.throwBall(velocity.multiplyScalar(10));
-            //             }
-            //         };
-            //     }
-            // }).catch(error => {
+            //     // Setup hand tracking to control the ball
+            // //     if (this.handTracker) {
+            // //         this.handTracker.onThrowCallback = (position, velocity) => {
+            // //             if (this.planetEnvironment && this.planetEnvironment.ballBody) {
+            // //                 this.planetEnvironment.throwBall(velocity.multiplyScalar(10));
+            // //             }
+            // //         };
+            // //     }
+            }).catch(error => {
                 console.error('Failed to setup planet environment:', error);
             });
 

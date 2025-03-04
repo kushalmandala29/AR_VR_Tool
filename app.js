@@ -5,7 +5,7 @@ import MainCamera from './cameras/mainCamera.js';
 import SolarSystem from './models/solarSystem.js';
 // import { HandTracker } from './handTracking.js';
 import * as TWEEN from 'https://cdn.jsdelivr.net/npm/@tweenjs/tween.js@18.6.4/dist/tween.esm.js';
-import { PhysicsHandler } from './physics.js';
+// import { PhysicsHandler } from './physics.js';
 
 console.log('Starting Solar System Application...');
 
@@ -57,7 +57,7 @@ solarSystem.controls = controls;
 solarSystem.setupClickEvents(camera, renderer);
 
 // Initialize physics
-const physics = new PhysicsHandler(scene);
+// const physics = new PhysicsHandler(scene);
 
 // webcam initialization
 let webcamStream = null;
@@ -108,7 +108,7 @@ function animate() {
     requestAnimationFrame(animate);
     controls.update();
     TWEEN.update();
-    physics.update();
+    // physics.update();
     solarSystem.update();
     renderer.render(scene, camera);
 }
