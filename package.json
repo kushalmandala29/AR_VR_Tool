@@ -5,6 +5,7 @@
   "main": "index.html",
   "scripts": {
     "start": "npx live-server --port=8080",
+    "build": "echo 'No build step needed",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
