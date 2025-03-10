@@ -392,11 +392,13 @@ export default class SolarSystem {
         // if (this.handTracker) {
         //     this.handTracker.onThrowCallback = null;
         // }
-
+        // this.planetEnvironment.hidePhysicsCalculations();
         // Cleanup planet environment
         if (this.planetEnvironment) {
             this.planetEnvironment.cleanup();
             this.planetEnvironment = null;
+            // this.planetEnvironment.hideProjectileExplanation();
+
         }
 
         // Show solar system objects
@@ -418,6 +420,8 @@ export default class SolarSystem {
                 }
             })
             .start();
+            // this.hideProjectileExplanation();
+
     }
 
     zoomToPlanet(planetName) {

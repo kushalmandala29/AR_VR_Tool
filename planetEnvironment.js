@@ -835,6 +835,8 @@ export class PlanetEnvironment {
                 this.secondaryTrajectoryLine.visible = false;
             }
             this.hideProjectileExplanation();
+
+            // this.hideProjectileExplanation();
             // console.log(`Ball Position: X=${this.ball.position.x.toFixed(2)}, Y=${this.ball.position.y.toFixed(2)}, Z=${this.ball.position.z.toFixed(2)}`);
             // console.log(`Ball Body Position: X=${this.ballBody.position.x.toFixed(2)}, Y=${this.ballBody.position.y.toFixed(2)}, Z=${this.ballBody.position.z.toFixed(2)}`);
         //     // console.log("Ball picked up");
@@ -1220,6 +1222,7 @@ export class PlanetEnvironment {
         if (this.landingMarker) this.scene.remove(this.landingMarker);
         if (this.secondaryTrajectoryLine) this.scene.remove(this.secondaryTrajectoryLine);
         this.removeFlightDataDisplay();
+        this.hideProjectileExplanation();
         this.isInUpdateLoop = false;
     
         // 3. Remove character / physics bodies
@@ -1239,6 +1242,7 @@ export class PlanetEnvironment {
             this.physicsWorld.removeBody(this.ballBody);
             this.ballBody = null;
         }
+        
     
         // 4. Remove planet-specific objects
         if (this.skybox) {
