@@ -2,10 +2,9 @@
   "name": "my-solar-system-project",
   "version": "1.0.0",
   "description": "Solar System with Hand Tracking",
-  "main": "out/bundle.js",
+  "main": "index.html",
   "scripts": {
     "start": "npx live-server --port=8080",
-    "build": "webpack --mode production",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
