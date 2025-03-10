@@ -103,10 +103,10 @@ export default class SolarSystem {
 
     createPlanets() {
         const planetData = {
-            mercury: { radius: 1, distance: 10, color: 0x8C8C8C, speed: 0.01, atmosphere: false },
-            venus: { radius: 1.5, distance: 15, color: 0xE6B800, speed: 0.008, atmosphere: true },
-            earth: { radius: 2, distance: 20, color: 0x2E5CB8, speed: 0.006, atmosphere: true },
-            mars: { radius: 1.2, distance: 25, color: 0xCC4D29, speed: 0.004, atmosphere: true },
+            mercury: { radius: 1, distance: 10, color: 0x8C8C8C, speed: 0.0009, atmosphere: true },
+            venus: { radius: 1.5, distance: 15, color: 0xE6B800, speed: 0.001, atmosphere: true },
+            earth: { radius: 2, distance: 20, color: 0x2E5CB8, speed: 0.002, atmosphere: true },
+            mars: { radius: 2, distance: 25, color: 0xCC4D29, speed: 0.001, atmosphere: true },
             jupiter: { radius: 4, distance: 35, color: 0xD8CA9D, speed: 0.002, atmosphere: true },
             saturn: { radius: 3.5, distance: 45, color: 0xF4D03F, speed: 0.001, atmosphere: true },
             uranus: { radius: 2.5, distance: 55, color: 0x73C6B6, speed: 0.0008, atmosphere: true },
@@ -199,7 +199,7 @@ export default class SolarSystem {
             const planet = this.findPlanetObject(intersects[0].object);
             if (planet) {
                 // Check if it's a double click (within 300ms)
-                if (currentTime - this.lastClickTime < 300 && this.selectedPlanet === planet) {
+                if (currentTime - this.lastClickTime < 1200 && this.selectedPlanet === planet) {
                     this.enterPlanet(planet);
                 }
                 this.selectedPlanet = planet;
@@ -389,9 +389,9 @@ export default class SolarSystem {
         console.log('Exiting planet environment');
         
         // Remove hand tracking callback
-        if (this.handTracker) {
-            this.handTracker.onThrowCallback = null;
-        }
+        // if (this.handTracker) {
+        //     this.handTracker.onThrowCallback = null;
+        // }
 
         // Cleanup planet environment
         if (this.planetEnvironment) {

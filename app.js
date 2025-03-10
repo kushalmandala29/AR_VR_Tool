@@ -128,6 +128,7 @@ async function main() {
         // await startHandTracking(stream);
         // console.log('Starting animation...');
         animate();
+        requestAnimationFrame(animate);
     } catch (error) {
         console.error('Initialization failed:', error);
         document.getElementById('error-message').innerText = 'Initialization failed: ' + error.message;
